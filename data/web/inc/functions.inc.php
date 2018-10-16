@@ -246,6 +246,10 @@ function hasMailboxObjectAccess($username, $role, $object) {
   if (isset($row['domain']) && hasDomainAccess($username, $role, $row['domain'])) {
     return true;
   }
+  $ldap = ldap_user_search($object);
+  if (isset($ldap[0])) {
+    return hasDomainAccess($username, $role, $ldap[0]['domain']);
+  }
 	return false;
 }
 function pem_to_der($pem_key) {
@@ -338,7 +342,7 @@ function alertbox_log_parser($_data){
       }
       $log_array[] = array('msg' => json_encode($msg), 'type' => json_encode($type));
     }
-    if (!empty($log_array)) { 
+    if (!empty($log_array)) {
       return $log_array;
     }
   }
@@ -469,7 +473,13 @@ function check_login($user, $pass) {
         return "domainadmin";
       }
 		}
-	}
+  }
+
+  if (ldap_check_login($user, $pass)) {
+    unset($_SESSION['ldelay']);
+    return "user";
+  }
+
 	$stmt = $pdo->prepare("SELECT `password` FROM `mailbox`
 			WHERE `kind` NOT REGEXP 'location|thing|group'
         AND `active`='1'
@@ -504,6 +514,60 @@ function check_login($user, $pass) {
   );
 	sleep($_SESSION['ldelay']);
   return false;
+}
+function set_acl() {
+	global $pdo;
+	if (!isset($_SESSION['mailcow_cc_username'])) {
+		return false;
+	}
+	if ($_SESSION['mailcow_cc_role'] == 'admin' || $_SESSION['mailcow_cc_role'] == 'domainadmin') {
+    $stmt = $pdo->query("SHOW COLUMNS FROM `user_acl` WHERE `Field` != 'username';");
+    $acl_all = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    while ($row = array_shift($acl_all)) {
+      $acl['acl'][$row['Field']] = 1;
+    }
+	}
+  else {
+    $username = strtolower(trim($_SESSION['mailcow_cc_username']));
+    $stmt = $pdo->prepare("SELECT * FROM `user_acl` WHERE `username` = :username");
+    $stmt->execute(array(':username' => $username));
+    $acl['acl'] = $stmt->fetch(PDO::FETCH_ASSOC);
+    unset($acl['acl']['username']);
+
+    // no entry? get default values
+    if (!$acl['acl']) {
+      $stmt = $pdo->query("SHOW COLUMNS FROM `user_acl` WHERE `Field` != 'username';");
+      $acl_all = $stmt->fetchAll(PDO::FETCH_ASSOC);
+      while ($row = array_shift($acl_all)) {
+        $acl['acl'][$row['Field']] = $row['Default'];
+      }
+
+      $_SESSION = array_merge($_SESSION, $acl);
+    }
+  }
+  if (!empty($acl)) {
+    $_SESSION = array_merge($_SESSION, $acl);
+  }
+  else {
+    return false;
+  }
+}
+function get_acl($username) {
+	global $pdo;
+	if ($_SESSION['mailcow_cc_role'] != "admin") {
+		return false;
+	}
+  $username = strtolower(trim($username));
+  $stmt = $pdo->prepare("SELECT * FROM `user_acl` WHERE `username` = :username");
+  $stmt->execute(array(':username' => $username));
+  $acl = $stmt->fetch(PDO::FETCH_ASSOC);
+  unset($acl['username']);
+  if (!empty($acl)) {
+    return $acl;
+  }
+  else {
+    return false;
+  }
 }
 function formatBytes($size, $precision = 2) {
 	if(!is_numeric($size)) {
@@ -673,7 +737,7 @@ function user_get_alias_details($username) {
   }
   return $data;
 }
-function is_valid_domain_name($domain_name) { 
+function is_valid_domain_name($domain_name) {
 	if (empty($domain_name)) {
 		return false;
 	}
@@ -712,7 +776,7 @@ function set_tfa($_data) {
     );
     return false;
   }
-  
+
 	switch ($_data["tfa_method"]) {
 		case "yubi_otp":
       $key_id = (!isset($_data["key_id"])) ? 'unidentified' : $_data["key_id"];
@@ -747,7 +811,7 @@ function set_tfa($_data) {
 			try {
         // We could also do a modhex translation here
         $yubico_modhex_id = substr($_data["otp_token"], 0, 12);
-        $stmt = $pdo->prepare("DELETE FROM `tfa` 
+        $stmt = $pdo->prepare("DELETE FROM `tfa`
           WHERE `username` = :username
             AND (`authmech` != 'yubi_otp')
             OR (`authmech` = 'yubi_otp' AND `secret` LIKE :modhex)");
@@ -914,7 +978,7 @@ function get_tfa($username = null) {
       WHERE `username` = :username AND `active` = '1'");
   $stmt->execute(array(':username' => $username));
   $row = $stmt->fetch(PDO::FETCH_ASSOC);
-  
+
 	switch ($row["authmech"]) {
 		case "yubi_otp":
       $data['name'] = "yubi_otp";
@@ -977,7 +1041,7 @@ function verify_tfa_login($username, $token) {
       WHERE `username` = :username AND `active` = '1'");
   $stmt->execute(array(':username' => $username));
   $row = $stmt->fetch(PDO::FETCH_ASSOC);
-  
+
 	switch ($row["authmech"]) {
 		case "yubi_otp":
 			if (!ctype_alnum($token) || strlen($token) != 44) {
@@ -1263,7 +1327,7 @@ function get_u2f_registrations($username) {
 }
 function get_logs($container, $lines = false) {
   if ($lines === false) {
-    $lines = $GLOBALS['LOG_LINES'] - 1; 
+    $lines = $GLOBALS['LOG_LINES'] - 1;
   }
   elseif(is_numeric($lines) && $lines >= 1) {
     $lines = abs(intval($lines) - 1);
@@ -1435,5 +1499,75 @@ function get_logs($container, $lines = false) {
     return false;
   }
   return false;
+}
+function ldap_user_search($username = NULL) {
+  global $ldap_config;
+
+  $ds = ldap_connect($ldap_config['host'], 389);
+  ldap_set_option($ds, LDAP_OPT_PROTOCOL_VERSION, 3);
+
+  if (!$ds || !ldap_bind($ds, $ldap_config['bind_dn'], $ldap_config['bind_pw'])) {
+    ldap_close($ds);
+    return false;
+  }
+
+  $sr = ldap_search(
+    $ds,
+    $ldap_config['search_dn'],
+    $ldap_config['mail_attr'] . "=" . ($username != NULL ? $username : "*"),
+    array($ldap_config['mail_attr'], $ldap_config['id_attr'], $ldap_config['quota_attr'], $ldap_config['name_attr'])
+  );
+  if (!$sr) {
+    ldap_close($ds);
+    return false;
+  }
+
+  $info = array();
+  $ldap = ldap_get_entries($ds, $sr);
+  for($i = 0; $i < $ldap['count']; ++$i) {
+    $entry = array();
+    $mail = explode("@", $ldap[$i][$ldap_config['mail_attr']][0]);
+
+    $entry['id'] = $ldap[$i][$ldap_config['id_attr']][0];
+    $entry['username'] = $mail[0] . "@" . $mail[1];
+    $entry['name'] = $ldap[$i][$ldap_config['name_attr']][0];
+    $entry['domain'] = $mail[1];
+    $entry['quota'] = $ldap[$i][$ldap_config['quota_attr']][0];
+
+    // todo: this should probably come from ldap
+    $entry['active'] = 1;
+
+    // mark this as a readonly mailbox
+    $entry['read_only'] = 1;
+
+    $info[] = $entry;
+  }
+
+  ldap_close($ds);
+  return $info;
+}
+
+function ldap_check_login($username, $password) {
+  global $ldap_config;
+
+  $ldap = ldap_user_search($username);
+  if (!isset($ldap[0])) {
+    return false;
+  }
+
+  $ds = ldap_connect($ldap_config['host'], 389);
+  ldap_set_option($ds, LDAP_OPT_PROTOCOL_VERSION, 3);
+  if (!$ds) {
+    ldap_close($ds);
+    return false;
+  }
+
+  if(!ldap_bind($ds, $ldap_config['id_attr'] . "=" . $ldap[0]['id'] . "," . $ldap_config['search_dn'], $password)) {
+    ldap_close($ds);
+    return false;
+  }
+
+  ldap_close($ds);
+  return true;
 }
 ?>

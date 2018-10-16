@@ -140,6 +140,32 @@ while read line
                     <key>viewURL</key>
                     <string>mysql://${DBUSER}:${DBPASS}@%2Fvar%2Frun%2Fmysqld%2Fmysqld.sock/${DBNAME}/_sogo_static_view</string>
                 </dict>
+                <dict>
+                    <key>type</key>
+                    <string>ldap</string>
+                    <key>CNFieldName</key>
+                    <string>${LDAP_NAME_ATTR}</string>
+                    <key>IDFieldName</key>
+                    <string>${LDAP_ID_ATTR}</string>
+                    <key>UIDFieldName</key>
+                    <string>${LDAP_ID_ATTR}</string>
+                    <key>IMAPLoginFieldName</key>
+                    <string>${LDAP_MAIL_ATTR}</string>
+                    <key>baseDN</key>
+                    <string>${LDAP_SEARCH_DN}</string>
+                    <key>bindDN</key>
+                    <string>${LDAP_BIND_DN}</string>
+                    <key>bindPassword</key>
+                    <string>${LDAP_BIND_PW}</string>
+                    <key>canAuthenticate</key>
+                    <string>YES</string>
+                    <key>hostname</key>
+                    <string>ldap://${LDAP_HOST}</string>
+                    <key>id</key>
+                    <string>public</string>
+                    <key>isAddressBook</key>
+                    <string>YES</string>
+                </dict>
             </array>
         </dict>" >> /var/lib/sogo/GNUstep/Defaults/sogod.plist
 done < <(mysql --socket=/var/run/mysqld/mysqld.sock -u ${DBUSER} -p${DBPASS} ${DBNAME} -e "SELECT domain FROM domain;" -B -N)

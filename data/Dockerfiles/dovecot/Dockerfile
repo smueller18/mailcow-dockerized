@@ -39,6 +39,8 @@ RUN apt-get update && apt-get -y --no-install-recommends install \
   libio-socket-ssl-perl \
   libio-tee-perl \
   libipc-run-perl \
+  # TODO: remove later?
+  libldap2-dev \
   liblockfile-simple-perl \
   liblz-dev \
   liblz4-dev \
@@ -74,7 +76,7 @@ RUN apt-get update && apt-get -y --no-install-recommends install \
 
 RUN curl https://www.dovecot.org/releases/2.3/dovecot-$DOVECOT_VERSION.tar.gz | tar xvz  \
   && cd dovecot-$DOVECOT_VERSION \
-  && ./configure --with-solr --with-mysql --with-lzma --with-lz4 --with-ssl=openssl --with-notify=inotify --with-storages=mdbox,sdbox,maildir,mbox,imapc,pop3c --with-bzlib --with-zlib \
+  && ./configure --with-solr --with-mysql --with-ldap --with-lzma --with-lz4 --with-ssl=openssl --with-notify=inotify --with-storages=mdbox,sdbox,maildir,mbox,imapc,pop3c --with-bzlib --with-zlib \
   && make -j3 \
   && make install \
   && make clean \
@@ -134,4 +136,3 @@ CMD exec /usr/bin/supervisord -c /etc/supervisor/supervisord.conf
 RUN rm -rf \
   /tmp/* \
   /var/tmp/*
-

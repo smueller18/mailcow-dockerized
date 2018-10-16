@@ -3,13 +3,13 @@
 trap "postfix stop" EXIT
 
 [[ ! -d /opt/postfix/conf/sql/ ]] && mkdir -p /opt/postfix/conf/sql/
+[[ ! -d /opt/postfix/conf/ldap/ ]] && mkdir -p /opt/postfix/conf/ldap/
 
 cat <<EOF > /etc/aliases
 null: /dev/null
 ham: "|/usr/local/bin/rspamd-pipe-ham"
 spam: "|/usr/local/bin/rspamd-pipe-spam"
 EOF
-newaliases;
 
 cat <<EOF > /opt/postfix/conf/sql/mysql_relay_recipient_maps.cf
 user = ${DBUSER}
@@ -244,6 +244,36 @@ dbname = ${DBNAME}
 query = SELECT goto FROM spamalias
   WHERE address='%s'
     AND validity >= UNIX_TIMESTAMP()
+EOF
+
+cat <<EOF > /opt/postfix/conf/ldap/virtual_mailbox_maps.cf
+server_host      = ${LDAP_HOST}
+server_port      = 389
+version          = 3
+bind             = yes
+start_tls        = no
+bind_dn          = ${LDAP_BIND_DN}
+bind_pw          = ${LDAP_BIND_PW}
+search_base      = ${LDAP_SEARCH_DN}
+scope            = sub
+query_filter     = (&(${LDAP_MAIL_ATTR}=%s)(objectclass=inetorgperson))
+result_attribute = ${LDAP_MAIL_ATTR}
+result_format    = %d/%u
+debuglevel       = 0
+EOF
+
+cat <<EOF > /opt/postfix/conf/ldap/sender_login_maps.cf
+server_host      = ${LDAP_HOST}
+server_port      = 389
+version          = 3
+bind             = yes
+start_tls        = no
+bind_dn          = ${LDAP_BIND_DN}
+bind_pw          = ${LDAP_BIND_PW}
+search_base      = ${LDAP_SEARCH_DN}
+scope            = sub
+query_filter     = (&(${LDAP_MAIL_ATTR}=%s)(objectClass=inetorgperson))
+result_attribute = ${LDAP_MAIL_ATTR}
 EOF
 
 # Reset GPG key permissions

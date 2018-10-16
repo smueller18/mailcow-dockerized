@@ -16,6 +16,7 @@ sed -i "s/LOG_LINES/${LOG_LINES}/g" /usr/local/bin/trim_logs.sh
 # Create missing directories
 [[ ! -d /usr/local/etc/dovecot/sql/ ]] && mkdir -p /usr/local/etc/dovecot/sql/
 [[ ! -d /var/vmail/_garbage ]] && mkdir -p /var/vmail/_garbage
+[[ ! -d /usr/local/etc/dovecot/ldap/ ]] && mkdir -p /usr/local/etc/dovecot/ldap/
 [[ ! -d /var/vmail/sieve ]] && mkdir -p /var/vmail/sieve
 [[ ! -d /etc/sogo ]] && mkdir -p /etc/sogo
 
@@ -99,6 +100,33 @@ driver = mysql
 connect = "host=/var/run/mysqld/mysqld.sock dbname=${DBNAME} user=${DBUSER} password=${DBPASS} ssl_verify_server_cert=no ssl_ca=/etc/ssl/certs/ca-certificates.crt"
 default_pass_scheme = SSHA256
 password_query = SELECT password FROM mailbox WHERE username = '%u' AND domain IN (SELECT domain FROM domain WHERE domain='%d' AND active='1') AND JSON_EXTRACT(attributes, '$.force_pw_update') NOT LIKE '%%1%%'
+EOF
+
+cat <<EOF > /usr/local/etc/dovecot/ldap/dovecot-ldap.conf
+hosts = ${LDAP_HOST}
+dn = ${LDAP_BIND_DN}
+dnpass = ${LDAP_BIND_PW}
+
+tls = no
+auth_bind = yes
+
+ldap_version = 3
+
+base = ${LDAP_SEARCH_DN}
+scope = subtree
+
+user_attrs = \
+  =quota_rule=*:bytes=%{ldap:${LDAP_QUOTA_ATTR}}, \
+  =home=/var/vmail/%d/%{ldap:${LDAP_ID_ATTR}}, \
+  =uid=5000, \
+  =gid=5000, \
+  =mail=maildir:/var/vmail/%d/%{ldap:${LDAP_ID_ATTR}}
+
+user_filter = (&(${LDAP_MAIL_ATTR}=%u)(objectClass=inetorgperson))
+pass_filter = (&(${LDAP_MAIL_ATTR}=%u)(objectClass=inetorgperson))
+
+iterate_attrs = mail=user
+iterate_filter = (objectClass=inetorgperson)
 EOF
 
 # Create global sieve_after script

@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 	perl \
 	postfix \
 	postfix-mysql \
+	postfix-ldap \
 	postfix-pcre \
 	python-gpg \
 	sasl2-bin \
