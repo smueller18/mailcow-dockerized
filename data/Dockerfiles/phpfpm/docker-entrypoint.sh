@@ -1,5 +1,43 @@
 #!/bin/bash
 
+if [ ! -f /usr/local/bin/jq ]; then
+  curl -sSL https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 -o /usr/local/bin/jq
+  chmod +x /usr/local/bin/jq
+fi
+RAINLOOP_LATEST_RELEASE=https://api.github.com/repos/rainloop/rainloop-webmail/releases/latest
+RAINLOOP_LATEST_VERSION=$(curl -sSL $RAINLOOP_LATEST_RELEASE | jq -r .name)
+
+if [ ! -f /rainloop/data/VERSION ] || [ "$(cat /rainloop/data/VERSION)" != "$RAINLOOP_LATEST_VERSION" ] || [ ! -d /rainloop/rainloop ]; then
+  echo "Updating Rainloop to version $RAINLOOP_LATEST_VERSION ..."
+  mkdir -p /rainloop
+  DOWNLOAD_URL=$(curl -sSL $RAINLOOP_LATEST_RELEASE \
+    | jq -r '.assets[] | select( .name | match ( "^rainloop-community-[0-9]*.[0-9]*.[0-9]*.zip$" ) ) | .browser_download_url')
+  curl -sSL $DOWNLOAD_URL -o /tmp/rainloop.zip
+  rm -rf /rainloop/rainloop
+  unzip -qo /tmp/rainloop.zip -d /rainloop
+  chown -R www-data:www-data /rainloop
+  find /rainloop -type d -exec chmod 755 {} \;
+  find /rainloop -type f -exec chmod 644 {} \;
+  rm -rf /tmp/rainloop.zip
+  echo "Finished updating Rainloop"
+else
+  echo "Rainloop is up to date"
+fi
+
+echo "Creating Rainloop config"
+rm -rf /rainloop/data/_data_/_default_/domains/{disabled,gmail.com.ini,outlook.com.ini,qq.com.ini,yahoo.com.ini}
+
+envsubst < /rainloop-config/application.ini.template \
+         > /rainloop/data/_data_/_default_/configs/application.ini
+
+envsubst < /rainloop-config/domain.ini.template \
+         > /rainloop/data/_data_/_default_/domains/${MAILCOW_DOMAINNAME}.ini
+
+for alias in $RAINLOOP_ALIASES; do
+  echo $MAILCOW_DOMAINNAME > /rainloop/data/_data_/_default_/domains/$alias.alias.ini
+done
+
+
 function array_by_comma { local IFS=","; echo "$*"; }
 
 # Wait for containers

@@ -1,0 +1,25 @@
+[contacts]
+enable = On
+allow_sync = On
+type = "mysql"
+pdo_dsn = "mysql:host=127.0.0.1;port=3306;dbname=${DBNAME}"
+pdo_user = "${DBUSER}"
+pdo_password = "${DBPASS}"
+
+[security]
+openpgp = On
+
+allow_admin_panel = Off
+allow_two_factor_auth = On
+
+[login]
+determine_user_domain = On
+
+[cache]
+fast_cache_driver = "redis"
+fast_cache_index = "rainloop_v1"
+
+[labs]
+allow_gravatar = On
+fast_cache_redis_host = "redis"
+fast_cache_redis_port = 6379

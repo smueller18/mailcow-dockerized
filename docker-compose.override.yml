@@ -1,0 +1,185 @@
+version: '2.2'
+
+services:
+  unbound-mailcow:
+    volumes:
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+
+  php-fpm-mailcow:
+    volumes:
+      - ./data/Dockerfiles/phpfpm/docker-entrypoint.sh:/docker-entrypoint.sh
+      - rainloop:/rainloop
+      - ./data/conf/phpfpm/rainloop:/rainloop-config
+    environment:
+      - RAINLOOP_ADMIN_PASSWORD=${RAINLOOP_ADMIN_PASSWORD:-12345}
+      - MAILCOW_DOMAINNAME=${MAILCOW_DOMAINNAME}
+
+  dovecot-mailcow:
+    volumes:
+      - $TLS_CERTIFICATE_PATH:/etc/ssl/mail/cert.pem:ro
+      - $TLS_KEY_PATH:/etc/ssl/mail/key.pem:ro
+      - ./data/assets/ssl/dhparams.pem:/etc/ssl/mail/dhparams.pem:ro
+
+  postfix-mailcow:
+    volumes:
+      - $TLS_CERTIFICATE_PATH:/etc/ssl/mail/cert.pem:ro
+      - $TLS_KEY_PATH:/etc/ssl/mail/key.pem:ro
+      - ./data/assets/ssl/dhparams.pem:/etc/ssl/mail/dhparams.pem:ro
+      - ./data/Dockerfiles/postfix/postfix.sh:/opt/postfix.sh
+    environment:
+      - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
+      - PUBLIC_IPV4_ADDRESS=${PUBLIC_IPV4_ADDRESS}
+
+  memcached-mailcow:
+    volumes:
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+    environment:
+      - TZ=${TZ}
+
+  nginx-mailcow:
+    depends_on:
+      - roundcube
+    volumes:
+      - roundcube:/roundcube:ro
+      - rainloop:/rainloop:ro
+    labels:
+      traefik.backend: mailcow-nginx
+      traefik.docker.network: loadbalancer
+      traefik.frontend.rule: HostRegexp:${MAILCOW_HOSTNAME},autoconfig.{domain:.*},autodiscover.{domain:.*},webmail.{domain:.*},roundcube.webmail.{domain:.*}
+      traefik.enable: "true"
+      traefik.port: 80
+    networks:
+      loadbalancer:
+
+  netfilter-mailcow:
+    depends_on:
+      - roundcube
+
+  sogo-mailcow:
+    image: alpine
+    entrypoint: sh -c 'while true; do sleep 365d; done'
+    init: true
+
+  ipv6nat:
+    image: alpine
+    entrypoint: sh -c 'while true; do sleep 365d; done'
+    network_mode: none
+    privileged: false
+    init: true
+
+  solr-mailcow:
+    image: alpine
+    entrypoint: sh -c 'while true; do sleep 365d; done'
+    init: true
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+
+  backup:
+    image: docker:latest
+    command: busybox crond -f -l 5 -L /dev/stdout
+    container_name: mailcow-backup
+    restart: always
+    depends_on:
+      - mysql-mailcow
+    volumes:
+      - ./mailcow.conf:/mailcow.conf
+      - ./docker-compose.yml:/docker-compose.yml
+      - ./helper-scripts/backup_and_restore.sh:/bin/backup_and_restore.sh
+      - ./data/conf/backup/crontab:/var/spool/cron/crontabs/root:ro
+      - /srv/backup/data/mailcow:/srv/backup/data/mailcow
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+    environment:
+      TZ: ${TZ}
+
+  php-fpm-exporter:
+    image: hipages/php-fpm_exporter:0.5.2
+    container_name: mailcow-php-fpm-exporter
+    restart: always
+    depends_on:
+      - php-fpm-mailcow
+    volumes:
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+    environment:
+      PHP_FPM_SCRAPE_URI: tcp://phpfpm:9001/status,tcp://phpfpm:9002/status
+      TZ: ${TZ}
+    networks:
+      default:
+      loadbalancer:
+    labels:
+      traefik.enable: true
+      traefik.port: 9253
+      traefik.frontend.rule: Host:${PHP_FPM_MONITORING_HOSTNAME}
+      traefik.frontend.auth.basic.usersFile: /htpasswd/monitoring.htpasswd
+      traefik.frontend.auth.basic.removeHeader: "true"
+
+  roundcube:
+    image: instrumentisto/roundcube:1.3-fpm
+    container_name: mailcow-roundcube
+    restart: always
+    entrypoint:
+      - /entrypoint.sh
+    command: "php-fpm -d date.timezone=${TZ} -d expose_php=0"
+    depends_on:
+      - mysql-mailcow
+    environment:
+      DBNAME: ${DBNAME}
+      DBUSER: ${DBUSER}
+      DBPASS: ${DBPASS}
+      IMAP_PORT: ${IMAP_PORT:-143}
+      SIEVE_PORT: ${SIEVE_PORT:-4190}
+      SUBMISSION_PORT: ${SUBMISSION_PORT:-587}
+      MAILCOW_HOSTNAME: ${MAILCOW_HOSTNAME}
+      DEBUG: 0
+      TZ: ${TZ}
+    volumes:
+      - roundcube:/app
+      - ./data/conf/roundcube/entrypoint.sh:/entrypoint.sh:ro
+      - ./data/conf/roundcube/config.inc.php:/app/config/config.inc.php:ro
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+    networks:
+      default:
+        aliases:
+          - roundcube
+
+networks:
+  loadbalancer:
+    external:
+      name: loadbalancer
+
+volumes:
+  vmail-vol-1:
+    driver: local-persist
+    driver_opts:
+      mountpoint: /srv/mailcow/vmail
+  vmail-attachments-vol-1:
+    driver: local-persist
+    driver_opts:
+      mountpoint: /srv/mailcow/vmail-attachments
+  mysql-vol-1:
+    driver: local-persist
+    driver_opts:
+      mountpoint: /srv/mailcow/mysql
+  redis-vol-1:
+    driver: local-persist
+    driver_opts:
+      mountpoint: /srv/mailcow/redis
+  rspamd-vol-1:
+    driver: local-persist
+    driver_opts:
+      mountpoint: /srv/mailcow/rspamd
+  postfix-vol-1:
+    driver: local-persist
+    driver_opts:
+      mountpoint: /srv/mailcow/postfix
+  crypt-vol-1:
+    driver: local-persist
+    driver_opts:
+      mountpoint: /srv/mailcow/crypt
+  rainloop:
+    driver: local-persist
+    driver_opts:
+      mountpoint: /srv/mailcow/rainloop
+  roundcube:

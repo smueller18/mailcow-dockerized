@@ -1,6 +1,9 @@
 # --------------------------------------------------------------------------
 # Please create a file "extra.cf" for persistent overrides to main.cf
 # --------------------------------------------------------------------------
+header_checks = pcre:/opt/postfix/conf/header_checks
+mime_header_checks = pcre:/opt/postfix/conf/header_checks
+
 biff = no
 append_dot_mydomain = no
 smtpd_tls_cert_file = /etc/ssl/mail/cert.pem
@@ -195,4 +198,3 @@ smtps_smtpd_tls_mandatory_protocols = !SSLv2, !SSLv3, !TLSv1, !TLSv1.1
 
 # DO NOT EDIT ANYTHING BELOW #
 # User overrides #
-
