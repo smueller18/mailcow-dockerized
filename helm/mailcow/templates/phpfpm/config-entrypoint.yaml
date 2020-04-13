@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "mailcow.fullname" . }}-phpfpm-entrypoint
+  namespace: {{ .Release.Namespace }}
+data:
+  docker-entrypoint.sh: | {{ $.Files.Get "data/Dockerfiles/phpfpm/docker-entrypoint.sh" | replace "-h${DBHOST}" "--host=mysql" | replace "REDIS_SLAVEOF_IP" "REDIS_SERVICE_HOST" | nindent 4 }}
+

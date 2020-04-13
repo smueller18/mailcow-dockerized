@@ -1,0 +1,26 @@
+nameOverride: ""
+fullnameOverride: ""
+
+persistence:
+  size: 10Gi
+  # storageClassName: csi-cephfs
+
+dovecot:
+  replicas: 1
+
+phpfpm:
+  replicas: 1
+
+tls:
+  cert:
+    secretKeyRef:
+      nameSuffix: tls-default
+      key: cert.pem
+  key:
+    secretKeyRef:
+      nameSuffix: tls-default
+      key: key.pem
+  dhparams:
+    secretKeyRef:
+      nameSuffix: tls-default
+      key: dhparams.pem

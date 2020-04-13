@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "mailcow.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+data:
+  REDIS_SLAVEOF_PORT: "6379"
+  API_KEY: invalid
+  API_KEY_READ_ONLY: invalid
+  API_ALLOW_FROM: invalid
+  ALLOW_ADMIN_EMAIL_LOGIN: "n"
+  MASTER: "y"
+
+  MAILCOW_DOMAINNAME: exaple.org
+  RAINLOOP_ADMIN_PASSWORD: "12345"
+  # PHP_FPM_MONITORING_HOSTNAME: mailcow-fpm.monitoring.mail.example.org
+
+  MAILCOW_HOSTNAME: mail.example.org
+
+  DBNAME: mailcow
+  DBUSER: mailcow
+  DBPASS: mailcow
+  DBROOT: mailcow
+  DBHOST: mysql
+
+  SMTP_PORT: "25"
+  SMTPS_PORT: "465"
+  SUBMISSION_PORT: "587"
+  IMAP_PORT: "143"
+  IMAPS_PORT: "993"
+  POP_PORT: "110"
+  POPS_PORT: "995"
+  SIEVE_PORT: "4190"
+
+  TZ: Europe/Berlin
+
+  # COMPOSE_PROJECT_NAME: mailcowdockerized
+
+  ACL_ANYONE: disallow
+  MAILDIR_GC_TIME: "1440"
+
+  SKIP_CLAMD: "y"
+  SKIP_SOLR: "y"
+  USE_WATCHDOG: "n"
+
+  LOG_LINES: "9999"
+
+  # MAILDIR_SUB: Maildir

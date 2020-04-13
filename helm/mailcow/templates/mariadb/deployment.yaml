@@ -1,0 +1,49 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: {{ template "mailcow.fullname" . }}-mariadb
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ template "mailcow.fullname" . }}-mariadb
+  replicas: {{ .Values.dovecot.replicas }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "mailcow.fullname" . }}-mariadb
+    spec:
+      terminationGracePeriodSeconds: 45
+      containers:
+        - name: dovecot
+          image: mariadb:10.3
+          ports:
+            - containerPort: 3306
+              name: mysql
+          env:
+            - name: MYSQL_DATABASE
+              value: mailcow
+            - name: MYSQL_USER
+              value: mailcow
+            - name: MYSQL_ROOT_PASSWORD
+              value: mailcow
+            - name: MYSQL_PASSWORD
+              value: mailcow
+            - name: TZ
+              value: Europe/Berlin
+            - name: MYSQL_INITDB_SKIP_TZINFO
+              value: "1"
+          volumeMounts:
+            - mountPath: /etc/mysql/conf.d
+              name: mysql
+            - mountPath: /var/lib/mysql
+              name: data
+              subPath: mysql
+      volumes:
+        - name: mysql
+          configMap:
+            name: {{ template "mailcow.fullname" . }}-mysql
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ template "mailcow.fullname" . }}-data

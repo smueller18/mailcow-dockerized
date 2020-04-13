@@ -1,0 +1,103 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: {{ template "mailcow.fullname" . }}-dovecot
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ template "mailcow.fullname" . }}-dovecot
+  replicas: {{ .Values.dovecot.replicas }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "mailcow.fullname" . }}-dovecot
+    spec:
+      containers:
+        - name: dovecot
+          image: mailcow/dovecot:1.117
+          command:
+            - sleep
+            - 1d
+          stdin: true
+          tty: true
+          ports:
+            - containerPort: 12345
+              name: doveadm
+            - containerPort: 143
+              name: imap
+            - containerPort: 993
+              name: imaps
+            - containerPort: 4190
+              name: sieve
+          envFrom:
+            - configMapRef:
+                name: {{ template "mailcow.fullname" . }}-config
+          volumeMounts:
+            {{- $searchBase := "data/conf/dovecot/" -}}
+            {{- $search := "*" -}}
+            {{- range $path, $bytes := .Files.Glob (printf "%s%s" $searchBase $search) }}
+            - mountPath: /etc/dovecot/{{ $path | replace $searchBase "" }}
+              name: dovecot
+              subPath: {{ $path | replace $searchBase "" }}
+            {{- end }}
+            - mountPath: /etc/rspamd/custom
+              name: rspamd
+            - mountPath: /templates
+              name: templates
+            - mountPath: /var/vmail
+              name: data
+              subPath: dovecot-vmail
+            - mountPath: /var/attachments
+              name: data
+              subPath: dovecot-attachments
+            - mountPath: /mail_crypt
+              name: data
+              subPath: dovecot-mailcrypt
+            - mountPath: /var/lib/rspamd
+              name: data
+              subPath: rspamd-lib
+            - mountPath: /docker-entrypoint.sh
+              name: entrypoint
+              subPath: docker-entrypoint.sh
+            - mountPath: /etc/ssl/mail/cert.pem
+              name: tls-cert
+              subPath: {{ .Values.tls.cert.secretKeyRef.key }}
+            - mountPath: /etc/ssl/mail/key.pem
+              name: tls-key
+              subPath: {{ .Values.tls.key.secretKeyRef.key }}
+            - mountPath: /etc/ssl/mail/dhparams.pem
+              name: tls-dhparams
+              subPath: {{ .Values.tls.dhparams.secretKeyRef.key }}
+      volumes:
+        - name: dovecot
+          configMap:
+            name: {{ template "mailcow.fullname" . }}-dovecot
+        - name: rspamd
+          configMap:
+            name: {{ template "mailcow.fullname" . }}-rspamd-custom
+        - name: templates
+          configMap:
+            name: {{ template "mailcow.fullname" . }}-dovecot-templates
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ template "mailcow.fullname" . }}-data
+        - name: entrypoint
+          configMap:
+            name: {{ template "mailcow.fullname" . }}-dovecot-entrypoint
+            defaultMode: 0755
+        - name: tls-cert
+          secret:
+            secretName: {{ template  "mailcow.fullname" . }}-{{ .Values.tls.cert.secretKeyRef.nameSuffix }}
+        - name: tls-key
+          secret:
+            secretName: {{ template  "mailcow.fullname" . }}-{{ .Values.tls.key.secretKeyRef.nameSuffix }}
+        - name: tls-dhparams
+          secret:
+            secretName: {{ template  "mailcow.fullname" . }}-{{ .Values.tls.dhparams.secretKeyRef.nameSuffix }}
+
+  #ulimits:
+  #  nproc: 65535
+  #  nofile:
+  #    soft: 20000
+  #    hard: 40000

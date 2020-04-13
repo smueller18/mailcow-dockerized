@@ -1,0 +1,33 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: {{ template "mailcow.fullname" . }}-redis
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ template "mailcow.fullname" . }}-redis
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: {{ template "mailcow.fullname" . }}-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:5-alpine
+          ports:
+            - containerPort: 6379
+              name: redis
+          env:
+            - name: TZ
+              value: Europe/Berlin
+          volumeMounts:
+            - mountPath: /data
+              name: data
+              subPath: redis
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ template "mailcow.fullname" . }}-data

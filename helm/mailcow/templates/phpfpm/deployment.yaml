@@ -1,0 +1,107 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: {{ template "mailcow.fullname" . }}-phpfpm
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ template "mailcow.fullname" . }}-phpfpm
+  replicas: {{ .Values.phpfpm.replicas }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "mailcow.fullname" . }}-phpfpm
+    spec:
+      containers:
+        - name: dovecot
+          image: mailcow/phpfpm:1.60
+          args:
+            - php-fpm
+            - -d
+            - date.timezone=Europe/Berlin
+            - -d
+            - expose_php=0
+          ports:
+            - containerPort: 9001
+              name: fpm-system
+            - containerPort: 9002
+              name: fpm-worker
+          envFrom:
+            - configMapRef:
+                name: {{ template "mailcow.fullname" . }}-config
+          volumeMounts:
+            - mountPath: /global_sieve/before
+              name: dovecot
+              subPath: global_sieve_before
+            - mountPath: /global_sieve/after
+              name: dovecot
+              subPath: global_sieve_after
+            - mountPath: /rspamd_custom_maps
+              name: rspamd-custom
+            - mountPath: /dynmaps
+              name: rspamd-dynmaps
+            - mountPath: /meta_exporter
+              name: rspamd-metaexporter
+            - mountPath: /var/lib/rspamd
+              name: data
+              subPath: rspamd-lib
+            - mountPath: /rainloop
+              name: data
+              subPath: rainloop
+            - mountPath: /rainloop-config
+              name: rainloop
+            - mountPath: /docker-entrypoint.sh
+              name: entrypoint
+              subPath: docker-entrypoint.sh
+            - mountPath: /tpls
+              name: templates
+            {{- $searchBase := "data/conf/phpfpm/php-fpm.d/" -}}
+            {{- $search := "*" -}}
+            {{- range $path, $bytes := .Files.Glob (printf "%s%s" $searchBase $search) }}
+            - mountPath: /usr/local/etc/php-fpm.d/{{ $path | replace $searchBase "" }}
+              name: fpm
+              subPath: {{ $path | replace $searchBase "" }}
+            {{- end }}
+            {{- $searchBase = "data/conf/phpfpm/php-conf.d/" -}}
+            {{- $search = "*" -}}
+            {{- range $path, $bytes := .Files.Glob (printf "%s%s" $searchBase $search) }}
+            - mountPath: /usr/local/etc/php-fpm.d/{{ $path | replace $searchBase "" }}
+              name: php
+              subPath: {{ $path | replace $searchBase "" }}
+            {{- end }}
+      volumes:
+        - name: dovecot
+          configMap:
+            name: {{ template "mailcow.fullname" . }}-dovecot
+        - name: rspamd-custom
+          configMap:
+            name: {{ template "mailcow.fullname" . }}-rspamd-custom
+        - name: rspamd-dynmaps
+          configMap:
+            name: {{ template "mailcow.fullname" . }}-rspamd-dynmaps
+        - name: rspamd-metaexporter
+          configMap:
+            name: {{ template "mailcow.fullname" . }}-rspamd-metaexporter
+        - name: templates
+          configMap:
+            name: {{ template "mailcow.fullname" . }}-dovecot-templates
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ template "mailcow.fullname" . }}-data
+        - name: entrypoint
+          configMap:
+            name: {{ template "mailcow.fullname" . }}-phpfpm-entrypoint
+            defaultMode: 0755
+        - name: fpm
+          configMap:
+            name: {{ template "mailcow.fullname" . }}-phpfpm-fpm
+        - name: php
+          configMap:
+            name: {{ template "mailcow.fullname" . }}-phpfpm-php
+        - name: rainloop
+          configMap:
+            name: {{ template "mailcow.fullname" . }}-phpfpm-rainloop
+
+#    - ./data/web:/web:rw

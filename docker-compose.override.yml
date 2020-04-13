@@ -1,25 +1,6 @@
 version: '2.2'
 
 services:
-  unbound-mailcow:
-    volumes:
-      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
-
-  php-fpm-mailcow:
-    volumes:
-      - ./data/Dockerfiles/phpfpm/docker-entrypoint.sh:/docker-entrypoint.sh
-      - rainloop:/rainloop
-      - ./data/conf/phpfpm/rainloop:/rainloop-config
-    environment:
-      - RAINLOOP_ADMIN_PASSWORD=${RAINLOOP_ADMIN_PASSWORD:-12345}
-      - MAILCOW_DOMAINNAME=${MAILCOW_DOMAINNAME}
-
-  dovecot-mailcow:
-    volumes:
-      - $TLS_CERTIFICATE_PATH:/etc/ssl/mail/cert.pem:ro
-      - $TLS_KEY_PATH:/etc/ssl/mail/key.pem:ro
-      - ./data/assets/ssl/dhparams.pem:/etc/ssl/mail/dhparams.pem:ro
-
   postfix-mailcow:
     volumes:
       - $TLS_CERTIFICATE_PATH:/etc/ssl/mail/cert.pem:ro
@@ -29,12 +10,6 @@ services:
     environment:
       - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
       - PUBLIC_IPV4_ADDRESS=${PUBLIC_IPV4_ADDRESS}
-
-  memcached-mailcow:
-    volumes:
-      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
-    environment:
-      - TZ=${TZ}
 
   nginx-mailcow:
     depends_on:

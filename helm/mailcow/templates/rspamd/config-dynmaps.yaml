@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "mailcow.fullname" . }}-rspamd-dynmaps
+  namespace: {{ .Release.Namespace }}
+data:
+  {{- $searchBase := "data/conf/rspamd/dynmaps/" -}}
+  {{- $search := "*" -}}
+  {{- range $path, $bytes := .Files.Glob (printf "%s%s" $searchBase $search) }}
+  {{ $path | replace $searchBase "" }}: | {{ $.Files.Get $path | nindent 4 -}}
+  {{- end -}}

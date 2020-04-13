@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "mailcow.fullname" . }}-dovecot-templates
+  namespace: {{ .Release.Namespace }}
+data:
+  {{- $searchBase := "data/assets/templates/" -}}
+  {{- $search := "*" -}}
+  {{- range $path, $bytes := .Files.Glob (printf "%s%s" $searchBase $search) }}
+  {{ $path | replace $searchBase "" }}: | {{ $.Files.Get $path | nindent 4 -}}
+  {{- end -}}
