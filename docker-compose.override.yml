@@ -30,27 +30,6 @@ services:
     depends_on:
       - roundcube
 
-  sogo-mailcow:
-    image: alpine
-    entrypoint: sh -c 'while true; do sleep 365d; done'
-    init: true
-
-  ipv6nat:
-    image: alpine
-    entrypoint: sh -c 'while true; do sleep 365d; done'
-    network_mode: none
-    privileged: false
-    init: true
-
-  solr-mailcow:
-    image: alpine
-    entrypoint: sh -c 'while true; do sleep 365d; done'
-    init: true
-    environment:
-      - TZ=${TZ}
-    volumes:
-      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
-
   backup:
     image: docker:latest
     command: busybox crond -f -l 5 -L /dev/stdout
