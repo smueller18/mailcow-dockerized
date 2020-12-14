@@ -360,6 +360,10 @@ fi
 # Fix SMTP last login on slaves
 sed -i "s/__REDIS_SLAVEOF_IP__/${REDIS_SLAVEOF_IP}/g" /usr/local/bin/smtpd_last_login.sh
 
+cat <<EOF > /opt/postfix/conf/header_checks
+/^Received:\ from (.*)\(.*\)(.*)\(Authenticated\ sender:\ .*\)(.*by .*)\$/U REPLACE Received: from ${MAILCOW_HOSTNAME} (${MAILCOW_HOSTNAME} [${PUBLIC_IPV4_ADDRESS}]) \$2(Sender was authenticated on ${MAILCOW_HOSTNAME}) \$3
+EOF
+
 # Fix Postfix permissions
 chown -R root:postfix /opt/postfix/conf/sql/ /opt/postfix/conf/custom_transport.pcre
 chmod 640 /opt/postfix/conf/sql/*.cf /opt/postfix/conf/custom_transport.pcre

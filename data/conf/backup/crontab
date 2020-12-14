@@ -1,0 +1,1 @@
+0 5 * * * if ! which bash; then apk add --no-cache bash; fi; find /srv/backup/data/mailcow -type d -name "mailcow-*" -mtime +3 -exec rm -rf {} \; && BACKUP_LOCATION="/srv/backup/data/mailcow" /bin/backup_and_restore.sh backup all

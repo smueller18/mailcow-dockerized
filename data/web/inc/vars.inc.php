@@ -36,7 +36,7 @@ $autodiscover_config = array(
   // General autodiscover service type: "activesync" or "imap"
   // emClient uses autodiscover, but does not support ActiveSync. mailcow excludes emClient from ActiveSync.
   // With SOGo disabled, the type will always fallback to imap. CalDAV and CardDAV will be excluded, too.
-  'autodiscoverType' => 'activesync',
+  'autodiscoverType' => 'imap',
   // If autodiscoverType => activesync, also use ActiveSync (EAS) for Outlook desktop clients (>= Outlook 2013 on Windows)
   // Outlook for Mac does not support ActiveSync
   'useEASforOutlook' => 'no',
@@ -48,27 +48,27 @@ $autodiscover_config = array(
     'port' => end(explode(':', getenv('IMAPS_PORT'))),
     'tlsport' => end(explode(':', getenv('IMAP_PORT'))),
   ),
-  'pop3' => array(
-    'server' => $mailcow_hostname,
-    'port' => end(explode(':', getenv('POPS_PORT'))),
-    'tlsport' => end(explode(':', getenv('POP_PORT'))),
-  ),
+#  'pop3' => array(
+#    'server' => $mailcow_hostname,
+#    'port' => end(explode(':', getenv('POPS_PORT'))),
+#    'tlsport' => end(explode(':', getenv('POP_PORT'))),
+#  ),
   'smtp' => array(
     'server' => $mailcow_hostname,
     'port' => end(explode(':', getenv('SMTPS_PORT'))),
     'tlsport' => end(explode(':', getenv('SUBMISSION_PORT'))),
   ),
-  'activesync' => array(
-    'url' => 'https://'.$mailcow_hostname.($https_port == 443 ? '' : ':'.$https_port).'/Microsoft-Server-ActiveSync',
-  ),
-  'caldav' => array(
-    'server' => $mailcow_hostname,
-    'port' => $https_port,
-  ),
-  'carddav' => array(
-    'server' => $mailcow_hostname,
-    'port' => $https_port,
-  ),
+#  'activesync' => array(
+#    'url' => 'https://'.$mailcow_hostname.($https_port == 443 ? '' : ':'.$https_port).'/Microsoft-Server-ActiveSync',
+#  ),
+#  'caldav' => array(
+#    'server' => $mailcow_hostname,
+#    'port' => $https_port,
+#  ),
+#  'carddav' => array(
+#    'server' => $mailcow_hostname,
+#    'port' => $https_port,
+#  ),
 );
 
 // If false, we will use DEFAULT_LANG
@@ -86,7 +86,7 @@ $AVAILABLE_LANGUAGES = array('ca', 'cs', 'de', 'en', 'es', 'fi', 'fr', 'hu', 'it
 // simplex, slate, spacelab, superhero, united, yeti
 // See https://bootswatch.com/
 // WARNING: Only lumen is loaded locally. Enabling any other theme, will download external sources.
-$DEFAULT_THEME = 'lumen';
+$DEFAULT_THEME = 'darkly';
 
 // Password complexity as regular expression
 // Min. 6 characters
@@ -102,8 +102,20 @@ $SHOW_DKIM_PRIV_KEYS = false;
 // mailcow Apps - buttons on login screen
 $MAILCOW_APPS = array(
   array(
-    'name' => 'Webmail',
-    'link' => '/SOGo/',
+    'name' => 'Rainloop Webmail',
+    'link' => 'https://webmail.' . getenv('MAILCOW_DOMAINNAME'),
+    'image' => array(
+      'link' => 'img/rainloop_logo.png',
+      'style' => 'height: 26px; margin: -18px 10px -14px -6px;'
+    ),
+  ),
+  array(
+    'name' => 'Roundcube Webmail',
+    'link' => 'https://roundcube.webmail.' . getenv('MAILCOW_DOMAINNAME'),
+    'image' => array(
+      'link' => 'img/roundcube_logo.svg',
+      'style' => 'height: 26px; margin: -18px 10px -18px -10px;'
+    ),
   )
 );
 

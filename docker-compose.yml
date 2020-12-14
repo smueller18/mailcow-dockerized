@@ -1,4 +1,4 @@
-version: '2.1'
+version: '2.2'
 services:
 
     unbound-mailcow:
@@ -11,7 +11,7 @@ services:
       restart: always
       tty: true
       networks:
-        mailcow-network:
+        default:
           ipv4_address: ${IPV4_NETWORK:-172.22.1}.254
           aliases:
             - unbound
@@ -36,7 +36,7 @@ services:
       ports:
         - "${SQL_PORT:-127.0.0.1:13306}:3306"
       networks:
-        mailcow-network:
+        default:
           aliases:
             - mysql
 
@@ -50,7 +50,7 @@ services:
       environment:
         - TZ=${TZ}
       networks:
-        mailcow-network:
+        default:
           ipv4_address: ${IPV4_NETWORK:-172.22.1}.249
           aliases:
             - redis
@@ -66,7 +66,7 @@ services:
       volumes:
         - ./data/conf/clamav/:/etc/clamav/:Z
       networks:
-        mailcow-network:
+        default:
           aliases:
             - clamd
 
@@ -96,7 +96,7 @@ services:
       dns:
         - ${IPV4_NETWORK:-172.22.1}.254
       networks:
-        mailcow-network:
+        default:
           aliases:
             - rspamd
 
@@ -155,7 +155,7 @@ services:
         - MASTER=${MASTER:-y}
       restart: always
       networks:
-        mailcow-network:
+        default:
           aliases:
             - phpfpm
 
@@ -188,7 +188,7 @@ services:
         - sogo-userdata-backup-vol-1:/sogo_backup:Z
       restart: always
       networks:
-        mailcow-network:
+        default:
           ipv4_address: ${IPV4_NETWORK:-172.22.1}.248
           aliases:
             - sogo
@@ -204,9 +204,9 @@ services:
       volumes:
         - ./data/hooks/dovecot:/hooks:Z
         - ./data/conf/dovecot:/etc/dovecot:z
-        - ./data/assets/ssl:/etc/ssl/mail/:ro,z
-        - ./data/conf/sogo/:/etc/sogo/:z
-        - ./data/conf/phpfpm/sogo-sso/:/etc/phpfpm/:z
+#        - ./data/assets/ssl:/etc/ssl/mail/:ro,z
+#        - ./data/conf/sogo/:/etc/sogo/:z
+#        - ./data/conf/phpfpm/sogo-sso/:/etc/phpfpm/:z
         - vmail-vol-1:/var/vmail:Z
         - vmail-index-vol-1:/var/vmail_index:Z
         - crypt-vol-1:/mail_crypt/:z
@@ -238,8 +238,8 @@ services:
         - "${DOVEADM_PORT:-127.0.0.1:19991}:12345"
         - "${IMAP_PORT:-143}:143"
         - "${IMAPS_PORT:-993}:993"
-        - "${POP_PORT:-110}:110"
-        - "${POPS_PORT:-995}:995"
+#        - "${POP_PORT:-110}:110"
+#        - "${POPS_PORT:-995}:995"
         - "${SIEVE_PORT:-4190}:4190"
       restart: always
       tty: true
@@ -249,7 +249,7 @@ services:
           soft: 20000
           hard: 40000
       networks:
-        mailcow-network:
+        default:
           ipv4_address: ${IPV4_NETWORK:-172.22.1}.250
           aliases:
             - dovecot
@@ -261,7 +261,7 @@ services:
       volumes:
         - ./data/hooks/postfix:/hooks:Z
         - ./data/conf/postfix:/opt/postfix/conf:z
-        - ./data/assets/ssl:/etc/ssl/mail/:ro,z
+#        - ./data/assets/ssl:/etc/ssl/mail/:ro,z
         - postfix-vol-1:/var/spool/postfix:z
         - crypt-vol-1:/var/lib/zeyple:z
         - rspamd-vol-1:/var/lib/rspamd:z
@@ -285,7 +285,7 @@ services:
       dns:
         - ${IPV4_NETWORK:-172.22.1}.254
       networks:
-        mailcow-network:
+        default:
           aliases:
             - postfix
 
@@ -295,28 +295,23 @@ services:
       environment:
         - TZ=${TZ}
       networks:
-        mailcow-network:
+        default:
           aliases:
             - memcached
 
     nginx-mailcow:
       depends_on:
-        - sogo-mailcow
+#        - sogo-mailcow
         - php-fpm-mailcow
         - redis-mailcow
       image: nginx:mainline-alpine
       dns:
         - ${IPV4_NETWORK:-172.22.1}.254
       command: /bin/sh -c "envsubst < /etc/nginx/conf.d/templates/listen_plain.template > /etc/nginx/conf.d/listen_plain.active &&
-        envsubst < /etc/nginx/conf.d/templates/listen_ssl.template > /etc/nginx/conf.d/listen_ssl.active &&
         envsubst < /etc/nginx/conf.d/templates/server_name.template > /etc/nginx/conf.d/server_name.active &&
-        envsubst < /etc/nginx/conf.d/templates/sogo.template > /etc/nginx/conf.d/sogo.active &&
-        . /etc/nginx/conf.d/templates/sogo.auth_request.template.sh > /etc/nginx/conf.d/sogo_proxy_auth.active &&
-        . /etc/nginx/conf.d/templates/sites.template.sh > /etc/nginx/conf.d/sites.active &&
-        . /etc/nginx/conf.d/templates/sogo_eas.template.sh > /etc/nginx/conf.d/sogo_eas.active &&
         nginx -qt &&
+        until ping roundcube -c1 > /dev/null; do sleep 1; done &&
         until ping phpfpm -c1 > /dev/null; do sleep 1; done &&
-        until ping sogo -c1 > /dev/null; do sleep 1; done &&
         until ping redis -c1 > /dev/null; do sleep 1; done &&
         until ping rspamd -c1 > /dev/null; do sleep 1; done &&
         exec nginx -g 'daemon off;'"
@@ -331,16 +326,16 @@ services:
       volumes:
         - ./data/web:/web:ro,z
         - ./data/conf/rspamd/dynmaps:/dynmaps:ro,z
-        - ./data/assets/ssl/:/etc/ssl/mail/:ro,z
+#        - ./data/assets/ssl/:/etc/ssl/mail/:ro,z
         - ./data/conf/nginx/:/etc/nginx/conf.d/:rw,Z
         - ./data/conf/rspamd/meta_exporter:/meta_exporter:ro,z
-        - sogo-web-vol-1:/usr/lib/GNUstep/SOGo/:z
-      ports:
-        - "${HTTPS_BIND:-0.0.0.0}:${HTTPS_PORT:-443}:${HTTPS_PORT:-443}"
-        - "${HTTP_BIND:-0.0.0.0}:${HTTP_PORT:-80}:${HTTP_PORT:-80}"
+#        - sogo-web-vol-1:/usr/lib/GNUstep/SOGo/:z
+#      ports:
+#        - "${HTTPS_BIND:-0.0.0.0}:${HTTPS_PORT:-443}:${HTTPS_PORT:-443}"
+#        - "${HTTP_BIND:-0.0.0.0}:${HTTP_PORT:-80}:${HTTP_PORT:-80}"
       restart: always
       networks:
-        mailcow-network:
+        default:
           aliases:
             - nginx
 
@@ -377,7 +372,7 @@ services:
         - mysql-socket-vol-1:/var/run/mysqld/:z
       restart: always
       networks:
-        mailcow-network:
+        default:
           aliases:
             - acme
 
@@ -387,7 +382,7 @@ services:
       depends_on:
         - dovecot-mailcow
         - postfix-mailcow
-        - sogo-mailcow
+#        - sogo-mailcow
         - php-fpm-mailcow
         - redis-mailcow
       restart: always
@@ -461,7 +456,7 @@ services:
         - MAILQ_THRESHOLD=${MAILQ_THRESHOLD:-20}
         - MAILQ_CRIT=${MAILQ_CRIT:-30}
       networks:
-        mailcow-network:
+        default:
           aliases:
             - watchdog
 
@@ -479,7 +474,7 @@ services:
       volumes:
         - /var/run/docker.sock:/var/run/docker.sock:ro
       networks:
-        mailcow-network:
+        default:
           aliases:
             - dockerapi
 
@@ -495,7 +490,7 @@ services:
         - SOLR_HEAP=${SOLR_HEAP:-1024}
         - SKIP_SOLR=${SKIP_SOLR:-y}
       networks:
-        mailcow-network:
+        default:
           aliases:
             - solr
 
@@ -513,7 +508,7 @@ services:
         - OLEFY_MINLENGTH=500
         - OLEFY_DEL_TMP=1
       networks:
-        mailcow-network:
+        default:
           aliases:
             - olefy
 
@@ -548,10 +543,11 @@ services:
         - /lib/modules:/lib/modules:ro
 
 networks:
-  mailcow-network:
+  default:
     driver: bridge
     driver_opts:
-      com.docker.network.bridge.name: br-mailcow
+      com.docker.network.bridge.name: mailcow
+    name: mailcow
     enable_ipv6: true
     ipam:
       driver: default

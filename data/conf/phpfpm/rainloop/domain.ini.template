@@ -1,0 +1,16 @@
+imap_host = "${MAILCOW_HOSTNAME}"
+imap_port = ${IMAPS_PORT}
+imap_secure = "SSL"
+imap_short_login = Off
+sieve_use = On
+sieve_allow_raw = Off
+sieve_host = "${MAILCOW_HOSTNAME}"
+sieve_port = ${SIEVE_PORT}
+sieve_secure = "TLS"
+smtp_host = "${MAILCOW_HOSTNAME}"
+smtp_port = ${SMTPS_PORT}
+smtp_secure = "SSL"
+smtp_short_login = Off
+smtp_auth = On
+smtp_php_mail = Off
+white_list = ""

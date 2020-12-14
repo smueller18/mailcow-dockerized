@@ -108,6 +108,14 @@ fi
 [ ! -f ./data/conf/rspamd/override.d/worker-controller-password.inc ] && echo '# Placeholder' > ./data/conf/rspamd/override.d/worker-controller-password.inc
 
 cat << EOF > mailcow.conf
+# custom config
+TLS_CERTIFICATE_PATH=
+TLS_KEY_PATH=
+MAILCOW_DOMAINNAME=
+PUBLIC_IPV4_ADDRESS=
+RAINLOOP_ADMIN_PASSWORD=12345
+PHP_FPM_MONITORING_HOSTNAME=mailcow-fpm.monitoring.${MAILCOW_HOSTNAME}
+
 # ------------------------------
 # mailcow web ui configuration
 # ------------------------------

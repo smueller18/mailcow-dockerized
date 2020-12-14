@@ -83,6 +83,12 @@ function backup() {
   cp "${SCRIPT_DIR}/../mailcow.conf" "${BACKUP_LOCATION}/mailcow-${DATE}"
   while (( "$#" )); do
     case "$1" in
+    rainloop|all)
+      docker run --rm \
+        -v ${BACKUP_LOCATION}/mailcow-${DATE}:/backup \
+        -v $(docker volume ls -qf name=${CMPS_PRJ}_rainloop):/rainloop \
+        debian:stretch-slim /bin/tar --warning='no-file-ignored' -Pcvpzf /backup/backup_rainloop.tar.gz /rainloop/data
+      ;;&
     vmail|all)
       docker run --name mailcow-backup --rm \
         -v ${BACKUP_LOCATION}/mailcow-${DATE}:/backup:z \
@@ -122,9 +128,9 @@ function backup() {
         continue
       else
         echo "Using SQL image ${SQLIMAGE}, starting..."
-        docker run --name mailcow-backup --rm \
-          --network $(docker network ls -qf name=${CMPS_PRJ}_mailcow-network) \
-          -v $(docker volume ls -qf name=${CMPS_PRJ}_mysql-vol-1):/var/lib/mysql/:ro,z \
+        docker run --rm \
+          --network $(docker network ls -qf name=${CMPS_PRJ}) \
+          -v $(docker volume ls -qf name=${CMPS_PRJ}_mysql-vol-1):/var/lib/mysql/:ro \
           --entrypoint= \
           -v ${BACKUP_LOCATION}/mailcow-${DATE}:/backup:z \
           ${SQLIMAGE} /bin/sh -c "mariabackup --host mysql --user root --password ${DBROOT} --backup --rsync --target-dir=/backup_mariadb ; \
@@ -155,6 +161,14 @@ function restore() {
   shift
   while (( "$#" )); do
     case "$1" in
+    rainloop)
+      docker stop $(docker ps -qf name=php-fpm-mailcow)
+      docker run -it --rm \
+        -v ${RESTORE_LOCATION}:/backup \
+        -v $(docker volume ls -qf name=${CMPS_PRJ}_rainloop):/rainloop \
+        debian:stretch-slim /bin/tar -Pxvzf /backup/backup_rainloop.tar.gz
+      docker start $(docker ps -aqf name=mailcow-php-fpm)
+      ;;
     vmail)
       docker stop $(docker ps -qf name=dovecot-mailcow)
       docker run -it --name mailcow-backup --rm \
